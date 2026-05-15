@@ -1,0 +1,24 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- AlterTable
+ALTER TABLE [dbo].[User_Settings] ADD [language] NVARCHAR(10),
+[timezone] NVARCHAR(100);
+
+-- AlterTable
+ALTER TABLE [dbo].[Users] ADD [major] NVARCHAR(255),
+[school] NVARCHAR(255);
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH

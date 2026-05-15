@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+//////////////////////////////////////////////////////
+// ROLES
+//////////////////////////////////////////////////////
+
+model Roles {
+  id    Int    @id @default(autoincrement())
+  name  String @db.NVarChar(50)
+
+  users Users[]
+}
+
+//////////////////////////////////////////////////////
+// USERS
+//////////////////////////////////////////////////////
+
+model Users {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique @db.NVarChar(255)
+  phone         String?   @db.NVarChar(20)
+  password_hash String
+  full_name     String?   @db.NVarChar(255)
+
+  role_id       Int?
+  provider      String?   @db.NVarChar(50)
+  status        String?   @db.NVarChar(50)
+
+  created_at    DateTime? @default(now())
+  updated_at    DateTime? @default(now())
+  refresh_tokens  refresh_tokens[] 
+  verify_token   String?
+  verify_expires DateTime?
+school    String?  @db.NVarChar(255)
+major     String?  @db.NVarChar(255)
+  reset_token    String?
+  reset_expires  DateTime?
+
+  is_deleted    Boolean?  @default(false)
+  deleted_at    DateTime?
+
+  role Roles? @relation(fields: [role_id], references: [id])
+
+  notifications User_Notifications[]
+  logs          Activity_Logs[]
+  settings      User_Settings?
+
+  tags       Tags[]
+  categories Categories[]
+  tasks      Tasks[]
+  reminders  Reminders[]
+}
+
+//////////////////////////////////////////////////////
+// USER NOTIFICATIONS
+//////////////////////////////////////////////////////
+
+model User_Notifications {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+
+  title      String?   @db.NVarChar(255)
+  content    String?
+  type       String?   @db.NVarChar(50)
+
+  is_read    Boolean?  @default(false)
+  created_at DateTime? @default(now())
+
+  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+//////////////////////////////////////////////////////
+// ACTIVITY LOGS
+//////////////////////////////////////////////////////
+
+model Activity_Logs {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+
+  action     String?
+  created_at DateTime? @default(now())
+
+  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+//////////////////////////////////////////////////////
+// USER SETTINGS
+//////////////////////////////////////////////////////
+
+model User_Settings {
+  user_id                Int      @id
+  theme                  String?  @db.NVarChar(50)
+  notification_enabled   Boolean? @default(true)
+language  String?  @db.NVarChar(10)
+timezone  String?  @db.NVarChar(100)
+  user Users @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+//////////////////////////////////////////////////////
+// TAGS
+//////////////////////////////////////////////////////
+
+model Tags {
+  id         Int      @id @default(autoincrement())
+  user_id    Int?
+
+  name       String?  @db.NVarChar(100)
+  color_code String?  @db.NVarChar(10)
+
+  is_deleted Boolean? @default(false)
+
+  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  task_tags Task_Tags[]
+}
+
+//////////////////////////////////////////////////////
+// CATEGORIES
+//////////////////////////////////////////////////////
+
+model Categories {
+  id            Int       @id @default(autoincrement())
+  user_id       Int?
+  color_code    String?   @db.NVarChar(10) 
+  name          String?   @db.NVarChar(100)
+  display_order Int?
+
+  is_deleted    Boolean?  @default(false)
+
+  created_at    DateTime? @default(now())
+  updated_at    DateTime? @default(now())
+
+  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([user_id, is_deleted])
+  tasks Tasks[]
+}
+
+//////////////////////////////////////////////////////
+// TASKS
+//////////////////////////////////////////////////////
+
+model Tasks {
+  id           Int       @id @default(autoincrement())
+
+  user_id      Int?
+  category_id  Int?
+
+  title        String    @db.NVarChar(255)
+  description  String?
+
+  start_date   DateTime?
+  due_date     DateTime?
+
+  priority     Int?
+  status       String?   @db.NVarChar(50)
+
+  created_at   DateTime? @default(now())
+  updated_at   DateTime? @default(now())
+
+  is_deleted   Boolean?  @default(false)
+  deleted_at   DateTime?
+
+  completed_at DateTime?
+
+  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  category Categories? @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+@@index([user_id, due_date, is_deleted])   
+  @@index([user_id, status, is_deleted]) 
+  reminders Reminders[]
+  subtasks  SubTasks[]
+  task_tags Task_Tags[]
+  attachments Task_Attachments[]
+}
+
+//////////////////////////////////////////////////////
+// REMINDERS
+//////////////////////////////////////////////////////
+
+model Reminders {
+  id          Int       @id @default(autoincrement())
+
+  user_id     Int?
+  task_id     Int?   // ✅ THÊM DÒNG NÀY
+
+  remind_time DateTime?
+  status      String?   @db.NVarChar(50)
+
+  task Tasks? @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+//////////////////////////////////////////////////////
+// TASK TAGS
+//////////////////////////////////////////////////////
+
+model Task_Tags {
+  task_id Int
+  tag_id  Int
+
+  task Tasks @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tag  Tags  @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([task_id, tag_id])
+}
+
+//////////////////////////////////////////////////////
+// SUB TASKS
+//////////////////////////////////////////////////////
+
+model SubTasks {
+  id           Int       @id @default(autoincrement())
+
+  task_id       Int?
+  title         String?   @db.NVarChar(255)
+  status        String?   @db.NVarChar(50)
+
+  created_at    DateTime? @default(now())
+  updated_at    DateTime? @default(now())
+  completed_at  DateTime?
+
+  task Tasks? @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+//////////////////////////////////////////////////////
+// TASK ATTACHMENTS
+//////////////////////////////////////////////////////
+
+model Task_Attachments {
+  id         Int       @id @default(autoincrement())
+  task_id    Int?
+  file_name  String    @db.NVarChar(255)
+  file_url   String    @db.NVarChar(500)
+  file_size  Int?
+  mime_type  String?   @db.NVarChar(100)
+  created_at DateTime? @default(now())
+
+  task Tasks? @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+///////////////////////////////////////////////////
+// refresh_tokens
+//////////////////////////////////////////////////
+model refresh_tokens {
+  id          String   @id @default(cuid())
+  user_id     Int
+  token       String   @unique @db.NVarChar(500)
+  expires_at  DateTime
+  device_info String?  @db.NVarChar(255)
+  ip_address  String?  @db.NVarChar(50)
+  created_at  DateTime @default(now())
+
+  user        Users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([user_id])
+  @@index([token])
+}
