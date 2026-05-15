@@ -425,16 +425,30 @@ export const googleCallback = (req: Request, res: Response) => {
       if (err || !user)
         return res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
 
-      // ✅ Ghi activity log → DAU tính được
       await prisma.activity_Logs
-        .create({
-          data: { user_id: user.id, action: "Đăng nhập Google" },
-        })
+        .create({ data: { user_id: user.id, action: "Đăng nhập Google" } })
         .catch(() => {});
 
       const roleName = user.role?.name ?? "USER";
-      const token = createToken(user.id, user.email, roleName, "7d");
-      return res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}`);
+      const accessToken = createToken(user.id, user.email, roleName, "15m");
+      const refreshToken = createRefreshToken(user.id, false);
+
+      await prisma.refresh_tokens
+        .create({
+          data: {
+            user_id: user.id,
+            token: refreshToken,
+            expires_at: new Date(Date.now() + REFRESH_TTL_SHORT),
+            device_info: (req.headers["user-agent"] ?? "unknown").slice(0, 255),
+            ip_address: (req.ip ?? "unknown").slice(0, 50),
+          },
+        })
+        .catch(() => {});
+
+      // ✅ Set cookie để refresh token hoạt động
+      setRefreshCookie(res, refreshToken, false);
+
+      return res.redirect(`${FRONTEND_URL}/auth/callback?token=${accessToken}`);
     },
   )(req, res);
 };
