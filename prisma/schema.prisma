@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -13,7 +13,7 @@ datasource db {
 
 model Roles {
   id    Int    @id @default(autoincrement())
-  name  String @db.NVarChar(50)
+  name  String
 
   users Users[]
 }
@@ -23,39 +23,42 @@ model Roles {
 //////////////////////////////////////////////////////
 
 model Users {
-  id            Int       @id @default(autoincrement())
-  email         String    @unique @db.NVarChar(255)
-  phone         String?   @db.NVarChar(20)
-  password_hash String
-  full_name     String?   @db.NVarChar(255)
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  phone           String?
+  password_hash   String
+  full_name       String?
 
-  role_id       Int?
-  provider      String?   @db.NVarChar(50)
-  status        String?   @db.NVarChar(50)
+  role_id         Int?
+  provider        String?
+  status          String?
 
-  created_at    DateTime? @default(now())
-  updated_at    DateTime? @default(now())
-  refresh_tokens  refresh_tokens[] 
-  verify_token   String?
-  verify_expires DateTime?
-school    String?  @db.NVarChar(255)
-major     String?  @db.NVarChar(255)
-  reset_token    String?
-  reset_expires  DateTime?
+  created_at      DateTime? @default(now())
+  updated_at      DateTime? @default(now())
 
-  is_deleted    Boolean?  @default(false)
-  deleted_at    DateTime?
+  verify_token    String?
+  verify_expires  DateTime?
 
-  role Roles? @relation(fields: [role_id], references: [id])
+  school          String?
+  major           String?
 
-  notifications User_Notifications[]
-  logs          Activity_Logs[]
-  settings      User_Settings?
+  reset_token     String?
+  reset_expires   DateTime?
 
-  tags       Tags[]
-  categories Categories[]
-  tasks      Tasks[]
-  reminders  Reminders[]
+  is_deleted      Boolean?  @default(false)
+  deleted_at      DateTime?
+
+  role            Roles? @relation(fields: [role_id], references: [id])
+
+  refresh_tokens  refresh_tokens[]
+  notifications   User_Notifications[]
+  logs            Activity_Logs[]
+  settings        User_Settings?
+
+  tags            Tags[]
+  categories      Categories[]
+  tasks           Tasks[]
+  reminders       Reminders[]
 }
 
 //////////////////////////////////////////////////////
@@ -66,14 +69,14 @@ model User_Notifications {
   id         Int       @id @default(autoincrement())
   user_id    Int?
 
-  title      String?   @db.NVarChar(255)
+  title      String?
   content    String?
-  type       String?   @db.NVarChar(50)
+  type       String?
 
   is_read    Boolean?  @default(false)
   created_at DateTime? @default(now())
 
-  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user Users? @relation(fields: [user_id], references: [id])
 }
 
 //////////////////////////////////////////////////////
@@ -87,7 +90,7 @@ model Activity_Logs {
   action     String?
   created_at DateTime? @default(now())
 
-  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user Users? @relation(fields: [user_id], references: [id])
 }
 
 //////////////////////////////////////////////////////
@@ -96,11 +99,12 @@ model Activity_Logs {
 
 model User_Settings {
   user_id                Int      @id
-  theme                  String?  @db.NVarChar(50)
+  theme                  String?
   notification_enabled   Boolean? @default(true)
-language  String?  @db.NVarChar(10)
-timezone  String?  @db.NVarChar(100)
-  user Users @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  language               String?
+  timezone               String?
+
+  user Users @relation(fields: [user_id], references: [id])
 }
 
 //////////////////////////////////////////////////////
@@ -111,12 +115,12 @@ model Tags {
   id         Int      @id @default(autoincrement())
   user_id    Int?
 
-  name       String?  @db.NVarChar(100)
-  color_code String?  @db.NVarChar(10)
+  name       String?
+  color_code String?
 
   is_deleted Boolean? @default(false)
 
-  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user Users? @relation(fields: [user_id], references: [id])
 
   task_tags Task_Tags[]
 }
@@ -128,8 +132,9 @@ model Tags {
 model Categories {
   id            Int       @id @default(autoincrement())
   user_id       Int?
-  color_code    String?   @db.NVarChar(10) 
-  name          String?   @db.NVarChar(100)
+
+  color_code    String?
+  name          String?
   display_order Int?
 
   is_deleted    Boolean?  @default(false)
@@ -137,9 +142,11 @@ model Categories {
   created_at    DateTime? @default(now())
   updated_at    DateTime? @default(now())
 
-  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  @@index([user_id, is_deleted])
+  user Users? @relation(fields: [user_id], references: [id])
+
   tasks Tasks[]
+
+  @@index([user_id, is_deleted])
 }
 
 //////////////////////////////////////////////////////
@@ -147,37 +154,39 @@ model Categories {
 //////////////////////////////////////////////////////
 
 model Tasks {
-  id           Int       @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
 
-  user_id      Int?
-  category_id  Int?
+  user_id       Int?
+  category_id   Int?
 
-  title        String    @db.NVarChar(255)
-  description  String?
+  title         String
+  description   String?
 
-  start_date   DateTime?
-  due_date     DateTime?
+  start_date    DateTime?
+  due_date      DateTime?
 
-  priority     Int?
-  status       String?   @db.NVarChar(50)
+  priority      Int?
+  status        String?
 
-  created_at   DateTime? @default(now())
-  updated_at   DateTime? @default(now())
+  created_at    DateTime? @default(now())
+  updated_at    DateTime? @default(now())
 
-  is_deleted   Boolean?  @default(false)
-  deleted_at   DateTime?
+  is_deleted    Boolean?  @default(false)
+  deleted_at    DateTime?
 
-  completed_at DateTime?
+  completed_at  DateTime?
 
-  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user Users? @relation(fields: [user_id], references: [id])
 
-  category Categories? @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-@@index([user_id, due_date, is_deleted])   
-  @@index([user_id, status, is_deleted]) 
-  reminders Reminders[]
-  subtasks  SubTasks[]
-  task_tags Task_Tags[]
+  category Categories? @relation(fields: [category_id], references: [id])
+
+  reminders   Reminders[]
+  subtasks    SubTasks[]
+  task_tags   Task_Tags[]
   attachments Task_Attachments[]
+
+  @@index([user_id, due_date, is_deleted])
+  @@index([user_id, status, is_deleted])
 }
 
 //////////////////////////////////////////////////////
@@ -188,13 +197,13 @@ model Reminders {
   id          Int       @id @default(autoincrement())
 
   user_id     Int?
-  task_id     Int?   // ✅ THÊM DÒNG NÀY
+  task_id     Int?
 
   remind_time DateTime?
-  status      String?   @db.NVarChar(50)
+  status      String?
 
-  task Tasks? @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user Users? @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task Tasks? @relation(fields: [task_id], references: [id])
+  user Users? @relation(fields: [user_id], references: [id])
 }
 
 //////////////////////////////////////////////////////
@@ -205,8 +214,8 @@ model Task_Tags {
   task_id Int
   tag_id  Int
 
-  task Tasks @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tag  Tags  @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task Tasks @relation(fields: [task_id], references: [id])
+  tag  Tags  @relation(fields: [tag_id], references: [id])
 
   @@id([task_id, tag_id])
 }
@@ -216,18 +225,19 @@ model Task_Tags {
 //////////////////////////////////////////////////////
 
 model SubTasks {
-  id           Int       @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
 
   task_id       Int?
-  title         String?   @db.NVarChar(255)
-  status        String?   @db.NVarChar(50)
+  title         String?
+  status        String?
 
   created_at    DateTime? @default(now())
   updated_at    DateTime? @default(now())
   completed_at  DateTime?
 
-  task Tasks? @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task Tasks? @relation(fields: [task_id], references: [id])
 }
+
 //////////////////////////////////////////////////////
 // TASK ATTACHMENTS
 //////////////////////////////////////////////////////
@@ -235,27 +245,36 @@ model SubTasks {
 model Task_Attachments {
   id         Int       @id @default(autoincrement())
   task_id    Int?
-  file_name  String    @db.NVarChar(255)
-  file_url   String    @db.NVarChar(500)
+
+  file_name  String
+  file_url   String
+
   file_size  Int?
-  mime_type  String?   @db.NVarChar(100)
+  mime_type  String?
+
   created_at DateTime? @default(now())
 
-  task Tasks? @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task Tasks? @relation(fields: [task_id], references: [id])
 }
-///////////////////////////////////////////////////
-// refresh_tokens
-//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+// REFRESH TOKENS
+//////////////////////////////////////////////////////
+
 model refresh_tokens {
   id          String   @id @default(cuid())
+
   user_id     Int
-  token       String   @unique @db.NVarChar(500)
+  token       String   @unique
+
   expires_at  DateTime
-  device_info String?  @db.NVarChar(255)
-  ip_address  String?  @db.NVarChar(50)
+
+  device_info String?
+  ip_address  String?
+
   created_at  DateTime @default(now())
 
-  user        Users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user Users @relation(fields: [user_id], references: [id])
 
   @@index([user_id])
   @@index([token])
