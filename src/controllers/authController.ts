@@ -418,12 +418,20 @@ export const googleCallback = (req: Request, res: Response) => {
   passport.authenticate(
     "google",
     { session: false },
-    (
+    async (
       err: Error,
       user: { id: number; email: string; role?: { name: string } },
     ) => {
       if (err || !user)
-        return res.status(401).json({ error: "Google auth thất bại" });
+        return res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
+
+      // ✅ Ghi activity log → DAU tính được
+      await prisma.activity_Logs
+        .create({
+          data: { user_id: user.id, action: "Đăng nhập Google" },
+        })
+        .catch(() => {});
+
       const roleName = user.role?.name ?? "USER";
       const token = createToken(user.id, user.email, roleName, "7d");
       return res.redirect(`${FRONTEND_URL}/auth/callback?token=${token}`);
