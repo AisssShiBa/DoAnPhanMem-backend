@@ -109,10 +109,12 @@ const createNodemailerProvider = (): MailProvider => {
 
   return {
     verifyMailConnection: () => {
-      transporter.verify((err) => {
-        if (err) console.warn("⚠️ Mail chưa cấu hình đúng:", err.message);
-        else console.log("✅ Mail transporter sẵn sàng (Nodemailer)");
-      });
+      if (process.env.NODE_ENV !== "production") {
+        transporter.verify((err) => {
+          if (err) console.warn("⚠️ Mail chưa cấu hình đúng:", err.message);
+          else console.log("✅ Mail transporter sẵn sàng (Nodemailer)");
+        });
+      }
     },
 
     sendVerifyEmail: (email, name, token) => {
@@ -183,7 +185,6 @@ const createResendProvider = (): MailProvider => {
       }),
   };
 };
-import * as SibApiV3Sdk from "@getbrevo/brevo";
 
 const createBrevoApiProvider = (): MailProvider => {
   const sendEmail = async (to: string, subject: string, html: string) => {
