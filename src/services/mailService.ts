@@ -1,31 +1,7 @@
-import nodemailer from "nodemailer";
-import dns from "dns";
-import SMTPTransport from "nodemailer/lib/smtp-transport";
 import { Resend } from "resend";
 
-dns.setDefaultResultOrder("ipv4first");
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface MailProvider {
-  verifyMailConnection: () => void;
-  sendVerifyEmail: (
-    email: string,
-    name: string,
-    token: string,
-  ) => Promise<unknown>;
-  sendResetPasswordEmail: (
-    email: string,
-    name: string,
-    token: string,
-  ) => Promise<unknown>;
-  sendReminderEmail: (
-    email: string,
-    name: string,
-    taskTitle: string,
-    dueDate: Date | null,
-  ) => Promise<unknown>;
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM = process.env.MAIL_FROM || "onboarding@resend.dev";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -86,165 +62,52 @@ const reminderEmailHtml = (
         📅 Deadline: <strong>${formattedDate}</strong>
       </p>
     </div>
-    <p style="font-size:12px;color:#9ca3af;margin-top:20px;border-top:1px solid #f3f4f6;padding-top:12px;">
+    <p style="font-size:12px;color:#9ca3af;margin-top:20px;
+              border-top:1px solid #f3f4f6;padding-top:12px;">
       Bạn nhận email này vì đã bật nhắc nhở trên SoftWhere.
       Tắt trong <strong>Cài đặt → Hồ sơ</strong> nếu không muốn nhận.
     </p>
   </div>`;
 
-// ─── Nodemailer Provider ──────────────────────────────────────────────────────
+// ─── Exports ─────────────────────────────────────────────────────────────────
 
-const createNodemailerProvider = (): MailProvider => {
-  const transporter = nodemailer.createTransport({
-    host: "smtp-relay.brevo.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS,
-    },
-  } as SMTPTransport.Options);
+export const verifyMailConnection = () => console.log("✅ Resend sẵn sàng");
 
-  const FROM = process.env.MAIL_FROM || process.env.MAIL_USER;
+export const sendVerifyEmail = (email: string, name: string, token: string) =>
+  resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: "Xác minh tài khoản SoftWhere của bạn",
+    html: verifyEmailHtml(
+      name,
+      `${process.env.FRONTEND_URL}/verify-email?token=${token}`,
+    ),
+  });
 
-  return {
-    verifyMailConnection: () => {
-      if (process.env.NODE_ENV !== "production") {
-        transporter.verify((err) => {
-          if (err) console.warn("⚠️ Mail chưa cấu hình đúng:", err.message);
-          else console.log("✅ Mail transporter sẵn sàng (Nodemailer)");
-        });
-      }
-    },
+export const sendResetPasswordEmail = (
+  email: string,
+  name: string,
+  token: string,
+) =>
+  resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: "Đặt lại mật khẩu SoftWhere của bạn",
+    html: resetPasswordHtml(
+      name,
+      `${process.env.FRONTEND_URL}/reset-password?token=${token}`,
+    ),
+  });
 
-    sendVerifyEmail: (email, name, token) => {
-      const verifyLink = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
-      return transporter.sendMail({
-        from: FROM,
-        to: email,
-        subject: "Xác minh tài khoản SoftWhere của bạn",
-        html: verifyEmailHtml(name, verifyLink),
-      });
-    },
-
-    sendResetPasswordEmail: (email, name, token) => {
-      const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-      return transporter.sendMail({
-        from: FROM,
-        to: email,
-        subject: "Đặt lại mật khẩu SoftWhere của bạn",
-        html: resetPasswordHtml(name, resetLink),
-      });
-    },
-
-    sendReminderEmail: (email, name, taskTitle, dueDate) =>
-      transporter.sendMail({
-        from: FROM,
-        to: email,
-        subject: `⏰ Nhắc nhở: "${taskTitle}" sắp đến hạn!`,
-        html: reminderEmailHtml(name, taskTitle, formatDueDate(dueDate)),
-      }),
-  };
-};
-
-// ─── Resend Provider ──────────────────────────────────────────────────────────
-
-const createResendProvider = (): MailProvider => {
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const FROM = process.env.MAIL_FROM || "onboarding@resend.dev";
-
-  return {
-    verifyMailConnection: () => console.log("✅ Resend sẵn sàng"),
-
-    sendVerifyEmail: (email, name, token) => {
-      const verifyLink = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
-      return resend.emails.send({
-        from: FROM,
-        to: email,
-        subject: "Xác minh tài khoản SoftWhere của bạn",
-        html: verifyEmailHtml(name, verifyLink),
-      });
-    },
-
-    sendResetPasswordEmail: (email, name, token) => {
-      const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-      return resend.emails.send({
-        from: FROM,
-        to: email,
-        subject: "Đặt lại mật khẩu SoftWhere của bạn",
-        html: resetPasswordHtml(name, resetLink),
-      });
-    },
-
-    sendReminderEmail: (email, name, taskTitle, dueDate) =>
-      resend.emails.send({
-        from: FROM,
-        to: email,
-        subject: `⏰ Nhắc nhở: "${taskTitle}" sắp đến hạn!`,
-        html: reminderEmailHtml(name, taskTitle, formatDueDate(dueDate)),
-      }),
-  };
-};
-
-const createBrevoApiProvider = (): MailProvider => {
-  const sendEmail = async (to: string, subject: string, html: string) => {
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": process.env.BREVO_API_KEY || "",
-      },
-      body: JSON.stringify({
-        sender: { name: "SoftWhere", email: "dattran22062005@gmail.com" },
-        to: [{ email: to }],
-        subject,
-        htmlContent: html,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Brevo API error: ${err}`);
-    }
-    return res.json();
-  };
-
-  return {
-    verifyMailConnection: () => console.log("✅ Brevo API sẵn sàng"),
-    sendVerifyEmail: (email, name, token) => {
-      const link = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
-      return sendEmail(
-        email,
-        "Xác minh tài khoản SoftWhere",
-        verifyEmailHtml(name, link),
-      );
-    },
-    sendResetPasswordEmail: (email, name, token) => {
-      const link = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-      return sendEmail(
-        email,
-        "Đặt lại mật khẩu SoftWhere",
-        resetPasswordHtml(name, link),
-      );
-    },
-    sendReminderEmail: (email, name, taskTitle, dueDate) =>
-      sendEmail(
-        email,
-        `⏰ Nhắc nhở: "${taskTitle}" sắp đến hạn!`,
-        reminderEmailHtml(name, taskTitle, formatDueDate(dueDate)),
-      ),
-  };
-};
-// ─── Active Provider ──────────────────────────────────────────────────────────
-
-const provider: MailProvider =
-  process.env.MAIL_PROVIDER === "brevo"
-    ? createBrevoApiProvider()
-    : process.env.MAIL_PROVIDER === "resend"
-      ? createResendProvider()
-      : createNodemailerProvider();
-export const {
-  verifyMailConnection,
-  sendVerifyEmail,
-  sendResetPasswordEmail,
-  sendReminderEmail,
-} = provider;
+export const sendReminderEmail = (
+  email: string,
+  name: string,
+  taskTitle: string,
+  dueDate: Date | null,
+) =>
+  resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `⏰ Nhắc nhở: "${taskTitle}" sắp đến hạn!`,
+    html: reminderEmailHtml(name, taskTitle, formatDueDate(dueDate)),
+  });
