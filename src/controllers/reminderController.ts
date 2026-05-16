@@ -46,7 +46,7 @@ export const createReminder = async (req: any, res: Response) => {
 
     // ✅ Buffer 60 giây để tránh reject do clock lệch client/server
     const now = new Date();
-    now.setSeconds(now.getSeconds() - 3);
+    now.setMinutes(now.getMinutes() - 3);
 
     if (remindDate < now) {
       return res.status(400).json({ error: "Thời gian nhắc nhở đã qua" });
