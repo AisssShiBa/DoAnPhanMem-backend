@@ -19,7 +19,8 @@ app.use(
   cors({
     origin: [
       process.env.FRONTEND_URL || "",
-      "https://doanphanmem-iyo5.onrender.com",
+      "https://softwhere.online",
+      "https://www.softwhere.online",
     ],
     credentials: true,
   }),
