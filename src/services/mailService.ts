@@ -183,14 +183,64 @@ const createResendProvider = (): MailProvider => {
       }),
   };
 };
+import * as SibApiV3Sdk from "@getbrevo/brevo";
 
+const createBrevoApiProvider = (): MailProvider => {
+  const sendEmail = async (to: string, subject: string, html: string) => {
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY || "",
+      },
+      body: JSON.stringify({
+        sender: { name: "SoftWhere", email: "dattran22062005@gmail.com" },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Brevo API error: ${err}`);
+    }
+    return res.json();
+  };
+
+  return {
+    verifyMailConnection: () => console.log("✅ Brevo API sẵn sàng"),
+    sendVerifyEmail: (email, name, token) => {
+      const link = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+      return sendEmail(
+        email,
+        "Xác minh tài khoản SoftWhere",
+        verifyEmailHtml(name, link),
+      );
+    },
+    sendResetPasswordEmail: (email, name, token) => {
+      const link = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+      return sendEmail(
+        email,
+        "Đặt lại mật khẩu SoftWhere",
+        resetPasswordHtml(name, link),
+      );
+    },
+    sendReminderEmail: (email, name, taskTitle, dueDate) =>
+      sendEmail(
+        email,
+        `⏰ Nhắc nhở: "${taskTitle}" sắp đến hạn!`,
+        reminderEmailHtml(name, taskTitle, formatDueDate(dueDate)),
+      ),
+  };
+};
 // ─── Active Provider ──────────────────────────────────────────────────────────
 
 const provider: MailProvider =
-  process.env.MAIL_PROVIDER === "resend"
-    ? createResendProvider()
-    : createNodemailerProvider();
-
+  process.env.MAIL_PROVIDER === "brevo"
+    ? createBrevoApiProvider()
+    : process.env.MAIL_PROVIDER === "resend"
+      ? createResendProvider()
+      : createNodemailerProvider();
 export const {
   verifyMailConnection,
   sendVerifyEmail,
