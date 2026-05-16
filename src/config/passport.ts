@@ -5,17 +5,6 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import prisma from "./prisma";
 
-const COLOR_MAP: Record<string, string> = {
-  red: "#ef4444",
-  orange: "#f97316",
-  yellow: "#eab308",
-  green: "#10b981",
-  blue: "#3b82f6",
-  indigo: "#6366f1",
-  purple: "#a855f7",
-  pink: "#ec4899",
-};
-
 passport.use(
   new GoogleStrategy(
     {
@@ -63,27 +52,6 @@ passport.use(
           },
           include: { role: true },
         });
-
-        try {
-          const defaultTags = await prisma.tags.findMany({
-            where: { user_id: null, is_deleted: false },
-          });
-          if (defaultTags.length > 0) {
-            await prisma.tags.createMany({
-              data: defaultTags.map((tag) => ({
-                user_id: user!.id,
-                name: tag.name,
-                color_code:
-                  COLOR_MAP[tag.color_code ?? ""] ??
-                  tag.color_code ??
-                  "#6366f1",
-                is_deleted: false,
-              })),
-            });
-          }
-        } catch (tagErr) {
-          console.error("Lỗi copy default tags Google:", tagErr);
-        }
 
         return done(null, user);
       } catch (error) {

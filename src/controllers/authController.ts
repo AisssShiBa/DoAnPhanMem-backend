@@ -18,18 +18,6 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const REFRESH_TTL_SHORT = 1 * 24 * 60 * 60 * 1000;
 const REFRESH_TTL_LONG = 30 * 24 * 60 * 60 * 1000;
 
-// ✅ Map tên màu từ admin → hex để render đúng màu
-const COLOR_MAP: Record<string, string> = {
-  red: "#ef4444",
-  orange: "#f97316",
-  yellow: "#eab308",
-  green: "#10b981",
-  blue: "#3b82f6",
-  indigo: "#6366f1",
-  purple: "#a855f7",
-  pink: "#ec4899",
-};
-
 /* ==================================================
    VALIDATION
 ================================================== */
@@ -114,26 +102,6 @@ export const signup = async (req: Request, res: Response) => {
         verify_expires: new Date(Date.now() + 15 * 60 * 1000),
       },
     });
-
-    // ✅ Copy default tags (user_id = null) sang user mới, convert màu sang hex
-    try {
-      const defaultTags = await prisma.tags.findMany({
-        where: { user_id: null, is_deleted: false },
-      });
-      if (defaultTags.length > 0) {
-        await prisma.tags.createMany({
-          data: defaultTags.map((tag) => ({
-            user_id: user.id,
-            name: tag.name,
-            color_code:
-              COLOR_MAP[tag.color_code ?? ""] ?? tag.color_code ?? "#6366f1",
-            is_deleted: false,
-          })),
-        });
-      }
-    } catch (tagError) {
-      console.log("Lỗi copy default tags:", tagError);
-    }
 
     try {
       await sendVerifyEmail(email, fullName, encodeURIComponent(verifyToken));
