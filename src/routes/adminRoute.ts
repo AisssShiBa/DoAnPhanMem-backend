@@ -36,6 +36,7 @@ router.get("/heatmap", getActivityHeatmap);
 // ── Quản lý user ──────────────────────────────────
 router.get("/users", getAllUsers);
 router.get("/users/inactive", getInactiveUsers);
+router.get("/users/:id/task-stats", getUserTaskStats);
 router.get("/users/:id", getUserById);
 router.get("/users/:id/tasks", getUserTaskStats);
 router.patch("/users/:id/status", updateUserStatus);
