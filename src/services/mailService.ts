@@ -3,6 +3,14 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.MAIL_FROM || "noreply@softwhere.online";
 
+const sendEmail = async (payload: Parameters<typeof resend.emails.send>[0]) => {
+  const result = await resend.emails.send(payload);
+  if (result.error) {
+    throw result.error;
+  }
+  return result.data;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const formatDueDate = (dueDate: Date | null) =>
@@ -71,10 +79,16 @@ const reminderEmailHtml = (
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-export const verifyMailConnection = () => console.log("✅ Resend sẵn sàng");
+export const verifyMailConnection = () => {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[Mail] RESEND_API_KEY chưa được cấu hình");
+    return;
+  }
+  console.log("✅ Resend sẵn sàng");
+};
 
 export const sendVerifyEmail = (email: string, name: string, token: string) =>
-  resend.emails.send({
+  sendEmail({
     from: FROM,
     to: email,
     subject: "Xác minh tài khoản SoftWhere của bạn",
@@ -89,7 +103,7 @@ export const sendResetPasswordEmail = (
   name: string,
   token: string,
 ) =>
-  resend.emails.send({
+  sendEmail({
     from: FROM,
     to: email,
     subject: "Đặt lại mật khẩu SoftWhere của bạn",
@@ -105,7 +119,7 @@ export const sendReminderEmail = (
   taskTitle: string,
   dueDate: Date | null,
 ) =>
-  resend.emails.send({
+  sendEmail({
     from: FROM,
     to: email,
     subject: `⏰ Nhắc nhở: "${taskTitle}" sắp đến hạn!`,

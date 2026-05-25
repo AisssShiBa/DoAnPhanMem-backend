@@ -22,7 +22,9 @@ app.use(
       "https://softwhere.online",
       "https://www.softwhere.online",
     ],
+    //credentials: true nghĩa là cho phép request gửi cookie/token xác thực giữa frontend và backend.
     credentials: true,
+    exposedHeaders: ["x-access-token", "x-auth-refreshed"],
   }),
 );
 
@@ -33,6 +35,7 @@ app.use("/api/auth", authRoute);
 
 app.use("/api/categories", categoryRoute);
 
+app.use("/api/tasks", subtaskRoute);
 app.use("/api/tasks", taskRoute);
 
 app.use("/api/subtasks", subtaskRoute);

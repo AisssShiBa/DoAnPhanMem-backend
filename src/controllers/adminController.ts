@@ -318,7 +318,14 @@ export const broadcastNotification = async (req: Request, res: Response) => {
     const { title, content, type } = req.body;
 
     const users = await prisma.users.findMany({
-      where: { is_deleted: false, status: "ACTIVE" },
+      where: {
+        is_deleted: false,
+        status: "ACTIVE",
+        OR: [
+          { settings: { is: null } },
+          { settings: { is: { notification_enabled: true } } },
+        ],
+      },
       select: { id: true },
     });
 
@@ -430,18 +437,29 @@ export const deleteDefaultTag = async (req: Request, res: Response) => {
 
 export const getAuditLogs = async (req: Request, res: Response) => {
   try {
-    const { search, page = "1" } = req.query as Record<string, string>;
+    const { search, role, page = "1" } = req.query as Record<string, string>;
     const take = 20;
     const skip = (Number(page) - 1) * take;
 
-    const where: any = {};
+    const where: any = { AND: [] };
     if (search) {
-      where.OR = [
-        { action: { contains: search } },
-        { user: { email: { contains: search } } },
-        { user: { full_name: { contains: search } } },
-      ];
+      where.AND.push({
+        OR: [
+          { action: { contains: search } },
+          { user: { is: { email: { contains: search } } } },
+          { user: { is: { full_name: { contains: search } } } },
+        ],
+      });
     }
+
+    const normalizedRole = role?.toUpperCase();
+    if (normalizedRole && normalizedRole !== "ALL") {
+      where.AND.push({
+        user: { is: { role: { is: { name: normalizedRole } } } },
+      });
+    }
+
+    if (where.AND.length === 0) delete where.AND;
 
     const [logs, total] = await Promise.all([
       prisma.activity_Logs.findMany({

@@ -17,6 +17,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 const REFRESH_TTL_SHORT = 1 * 24 * 60 * 60 * 1000;
 const REFRESH_TTL_LONG = 30 * 24 * 60 * 60 * 1000;
+const LOGIN_LOG_DEBOUNCE_MS = 10 * 60 * 1000;
+const ACTIVITY_LOG_RETENTION_DAYS = 180;
 
 /* ==================================================
    VALIDATION
@@ -64,6 +66,39 @@ function setRefreshCookie(res: Response, token: string, rememberMe: boolean) {
     path: "/",
   });
 }
+
+const cleanupExpiredRefreshTokens = (userId?: number) =>
+  prisma.refresh_tokens.deleteMany({
+    where: {
+      expires_at: { lt: new Date() },
+      ...(userId ? { user_id: userId } : {}),
+    },
+  });
+
+const cleanupOldActivityLogs = () => {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - ACTIVITY_LOG_RETENTION_DAYS);
+  return prisma.activity_Logs.deleteMany({
+    where: { created_at: { lt: cutoff } },
+  });
+};
+
+const recordLoginActivity = async (userId: number, action: string) => {
+  const since = new Date(Date.now() - LOGIN_LOG_DEBOUNCE_MS);
+  const recent = await prisma.activity_Logs.findFirst({
+    where: {
+      user_id: userId,
+      action,
+      created_at: { gte: since },
+    },
+  });
+
+  if (!recent) {
+    await prisma.activity_Logs.create({
+      data: { user_id: userId, action },
+    });
+  }
+};
 
 /* ==================================================
    SIGN UP
@@ -187,12 +222,11 @@ export const signin = async (req: Request, res: Response) => {
 
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) return res.status(401).json({ error: "Sai mật khẩu" });
-    await prisma.activity_Logs.create({
-      data: {
-        user_id: user.id,
-        action: "Đăng nhập thành công",
-      },
-    });
+    await Promise.all([
+      cleanupExpiredRefreshTokens(user.id),
+      cleanupOldActivityLogs(),
+      recordLoginActivity(user.id, "Đăng nhập thành công"),
+    ]);
     const roleName = user.role?.name ?? "USER";
     const accessToken = createToken(user.id, user.email, roleName, "15m");
     const refreshToken = createRefreshToken(user.id, rememberMe);
@@ -267,6 +301,8 @@ export const logoutAll = async (req: Request, res: Response) => {
 ================================================== */
 export const refresh = async (req: Request, res: Response) => {
   try {
+    await cleanupExpiredRefreshTokens();
+
     const token = req.cookies?.refreshToken as string | undefined;
     if (!token)
       return res.status(401).json({ error: "Không có refresh token." });
@@ -275,6 +311,8 @@ export const refresh = async (req: Request, res: Response) => {
     try {
       payload = jwt.verify(token, REFRESH_SECRET) as { id: number };
     } catch {
+      await prisma.refresh_tokens.deleteMany({ where: { token } });
+      res.clearCookie("refreshToken", { path: "/" });
       return res
         .status(401)
         .json({ error: "Refresh token không hợp lệ hoặc đã hết hạn." });
@@ -295,6 +333,12 @@ export const refresh = async (req: Request, res: Response) => {
     if (!user)
       return res.status(401).json({ error: "Người dùng không tồn tại." });
 
+    if (user.status !== "ACTIVE") {
+      await prisma.refresh_tokens.deleteMany({ where: { user_id: user.id } });
+      res.clearCookie("refreshToken", { path: "/" });
+      return res.status(403).json({ error: "Phiên không còn hợp lệ." });
+    }
+
     const remainingMs = stored.expires_at.getTime() - Date.now();
     const isLong = remainingMs > REFRESH_TTL_SHORT;
     const newRefresh = createRefreshToken(payload.id, isLong);
@@ -308,7 +352,17 @@ export const refresh = async (req: Request, res: Response) => {
     const roleName = user.role?.name ?? "USER";
     const accessToken = createToken(user.id, user.email, roleName, "15m");
 
-    return res.status(200).json({ token: accessToken });
+    return res.status(200).json({
+      token: accessToken,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: roleName,
+        provider: user.provider,
+        status: user.status,
+      },
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: "Lỗi hệ thống" });
@@ -393,9 +447,11 @@ export const googleCallback = (req: Request, res: Response) => {
       if (err || !user)
         return res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
 
-      await prisma.activity_Logs
-        .create({ data: { user_id: user.id, action: "Đăng nhập Google" } })
-        .catch(() => {});
+      await Promise.all([
+        cleanupExpiredRefreshTokens(user.id),
+        cleanupOldActivityLogs(),
+        recordLoginActivity(user.id, "Đăng nhập Google"),
+      ]).catch(() => {});
 
       const roleName = user.role?.name ?? "USER";
       const accessToken = createToken(user.id, user.email, roleName, "15m");

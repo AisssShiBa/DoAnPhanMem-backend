@@ -16,15 +16,27 @@ export const getTags = async (req: any, res: Response) => {
 export const createTag = async (req: any, res: Response) => {
   try {
     const { name, color_code } = req.body;
+    const tagName = name?.trim();
 
-    if (!name?.trim()) {
+    if (!tagName) {
       return res.status(400).json({ error: "Tên tag không được để trống" });
+    }
+
+    const existing = await prisma.tags.findFirst({
+      where: {
+        user_id: req.user.id,
+        is_deleted: false,
+        name: { equals: tagName, mode: "insensitive" },
+      },
+    });
+    if (existing) {
+      return res.status(409).json({ error: "Tag cá nhân đã tồn tại" });
     }
 
     const tag = await prisma.tags.create({
       data: {
         user_id: req.user.id,
-        name: name.trim(),
+        name: tagName,
         color_code: color_code ?? "#6366f1",
       },
     });
@@ -39,6 +51,20 @@ export const createTag = async (req: any, res: Response) => {
 export const deleteTag = async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "ID tag không hợp lệ" });
+    }
+
+    const tag = await prisma.tags.findFirst({
+      where: { id, user_id: req.user.id, is_deleted: false },
+    });
+    if (!tag) {
+      return res.status(404).json({ error: "Không tìm thấy tag cá nhân" });
+    }
+
+    await prisma.task_Tags.deleteMany({
+      where: { tag_id: id, task: { user_id: req.user.id } },
+    });
 
     await prisma.tags.update({
       where: { id },

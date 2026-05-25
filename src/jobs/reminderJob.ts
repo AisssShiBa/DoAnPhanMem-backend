@@ -50,7 +50,7 @@ export function startReminderJob() {
           continue;
         }
 
-        if (reminder.user.status === "BANNED") {
+        if (reminder.user.status !== "ACTIVE") {
           await prisma.reminders.update({
             where: { id: reminder.id },
             data: { status: "skipped" },

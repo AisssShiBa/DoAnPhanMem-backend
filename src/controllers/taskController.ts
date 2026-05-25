@@ -45,6 +45,12 @@ export const createTask = async (req: any, res: Response) => {
         due_date: due_date ? new Date(due_date) : null,
         status: "todo",
       },
+      include: {
+        category: true,
+        subtasks: { where: { status: { not: "deleted" } } },
+        task_tags: { include: { tag: true } },
+        reminders: true,
+      },
     });
 
     return res.status(201).json({ message: "Tạo task thành công", task });
@@ -86,6 +92,12 @@ export const updateTask = async (req: any, res: Response) => {
         category_id:
           category_id !== undefined ? category_id : existing.category_id,
         priority: priority ?? existing.priority,
+        start_date:
+          start_date !== undefined
+            ? start_date
+              ? new Date(start_date)
+              : null
+            : existing.start_date,
         due_date:
           due_date !== undefined
             ? due_date
@@ -101,6 +113,7 @@ export const updateTask = async (req: any, res: Response) => {
         category: true,
         subtasks: { where: { status: { not: "deleted" } } },
         task_tags: { include: { tag: true } },
+        reminders: true,
       },
     });
 
@@ -143,7 +156,10 @@ export const getTaskById = async (req: any, res: Response) => {
       where: { id: taskId, user_id: req.user.id, is_deleted: false },
       include: {
         category: true,
-        subtasks: { orderBy: { created_at: "asc" } },
+        subtasks: {
+          where: { status: { not: "deleted" } },
+          orderBy: { created_at: "asc" },
+        },
         task_tags: { include: { tag: true } },
         reminders: true,
       },
