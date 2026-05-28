@@ -184,6 +184,17 @@ export const updateSettings = async (req: Request, res: Response) => {
       },
     });
 
+    // Khi tắt thông báo, skip toàn bộ reminder đang chờ của user
+    if (notification_enabled === false) {
+      await prisma.reminders.updateMany({
+        where: {
+          user_id: userId,
+          status: "pending",
+        },
+        data: { status: "skipped" },
+      });
+    }
+
     return res.status(200).json({ message: "Cập nhật cài đặt thành công" });
   } catch (error) {
     console.log(error);
