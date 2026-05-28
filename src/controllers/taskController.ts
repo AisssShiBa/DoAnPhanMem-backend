@@ -83,6 +83,21 @@ export const updateTask = async (req: any, res: Response) => {
       return res.status(404).json({ error: "Không tìm thấy task" });
     }
 
+    if (status === "done") {
+      const unfinishedSubtasks = await prisma.subTasks.count({
+        where: {
+          task_id: taskId,
+          status: { notIn: ["done", "deleted"] },
+        },
+      });
+
+      if (unfinishedSubtasks > 0) {
+        return res.status(400).json({
+          error: "Cần hoàn thành tất cả công việc phụ trước khi hoàn thành task",
+        });
+      }
+    }
+
     const task = await prisma.tasks.update({
       where: { id: taskId },
       data: {
@@ -105,7 +120,12 @@ export const updateTask = async (req: any, res: Response) => {
               : null
             : existing.due_date,
         status: status ?? existing.status,
-        completed_at: status === "done" ? new Date() : existing.completed_at,
+        completed_at:
+          status === "done"
+            ? new Date()
+            : status !== undefined
+              ? null
+              : existing.completed_at,
         updated_at: new Date(),
       },
       include: {
