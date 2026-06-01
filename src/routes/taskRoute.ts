@@ -25,6 +25,10 @@ import {
   createReminder,
   deleteReminder,
 } from "../controllers/reminderController";
+import {
+  addTagToTask,
+  removeTagFromTask,
+} from "../controllers/tagController";
 const router = Router();
 const upload = multer({ dest: "uploads/" });
 
@@ -53,6 +57,9 @@ router.delete(
 router.get("/:taskId/reminders", protectedRoute, getReminders);
 router.post("/:taskId/reminders", protectedRoute, createReminder);
 router.delete("/:taskId/reminders/:reminderId", protectedRoute, deleteReminder);
+
+router.post("/:taskId/tags/:tagId", protectedRoute, addTagToTask);
+router.delete("/:taskId/tags/:tagId", protectedRoute, removeTagFromTask);
 // ── Task item ─────────────────────────────────────────────────
 router.get("/:id", protectedRoute, getTaskById);
 router.patch("/:id", protectedRoute, updateTask);

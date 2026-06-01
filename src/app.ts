@@ -21,6 +21,7 @@ app.use(
       process.env.FRONTEND_URL || "",
       "https://softwhere.online",
       "https://www.softwhere.online",
+      "https://doanphanmem-iyo5.onrender.com",
     ],
     //credentials: true nghĩa là cho phép request gửi cookie/token xác thực giữa frontend và backend.
     credentials: true,

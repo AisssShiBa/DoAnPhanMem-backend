@@ -1,15 +1,31 @@
 import type { Response } from "express";
 import prisma from "../config/prisma";
 
+const getTaskWithRelations = (taskId: number, userId: number) =>
+  prisma.tasks.findFirst({
+    where: { id: taskId, user_id: userId, is_deleted: false },
+    include: {
+      category: true,
+      subtasks: {
+        where: { status: { not: "deleted" } },
+        orderBy: { created_at: "asc" },
+      },
+      task_tags: { include: { tag: true } },
+      reminders: true,
+      attachments: true,
+    },
+  });
+
 export const getTags = async (req: any, res: Response) => {
   try {
     const tags = await prisma.tags.findMany({
       where: { user_id: req.user.id, is_deleted: false },
+      orderBy: { id: "desc" },
     });
     return res.status(200).json({ tags });
   } catch (error) {
-    console.error("Lỗi getTags:", error);
-    return res.status(500).json({ error: "Lỗi hệ thống" });
+    console.error("Loi getTags:", error);
+    return res.status(500).json({ error: "Loi he thong" });
   }
 };
 
@@ -19,7 +35,7 @@ export const createTag = async (req: any, res: Response) => {
     const tagName = name?.trim();
 
     if (!tagName) {
-      return res.status(400).json({ error: "Tên tag không được để trống" });
+      return res.status(400).json({ error: "Ten tag khong duoc de trong" });
     }
 
     const existing = await prisma.tags.findFirst({
@@ -29,8 +45,9 @@ export const createTag = async (req: any, res: Response) => {
         name: { equals: tagName, mode: "insensitive" },
       },
     });
+
     if (existing) {
-      return res.status(409).json({ error: "Tag cá nhân đã tồn tại" });
+      return res.status(409).json({ error: "Tag ca nhan da ton tai" });
     }
 
     const tag = await prisma.tags.create({
@@ -41,10 +58,10 @@ export const createTag = async (req: any, res: Response) => {
       },
     });
 
-    return res.status(201).json({ message: "Tạo tag thành công", tag });
+    return res.status(201).json({ message: "Tao tag thanh cong", tag });
   } catch (error) {
-    console.error("Lỗi createTag:", error);
-    return res.status(500).json({ error: "Lỗi hệ thống" });
+    console.error("Loi createTag:", error);
+    return res.status(500).json({ error: "Loi he thong" });
   }
 };
 
@@ -52,14 +69,14 @@ export const deleteTag = async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).json({ error: "ID tag không hợp lệ" });
+      return res.status(400).json({ error: "ID tag khong hop le" });
     }
 
     const tag = await prisma.tags.findFirst({
       where: { id, user_id: req.user.id, is_deleted: false },
     });
     if (!tag) {
-      return res.status(404).json({ error: "Không tìm thấy tag cá nhân" });
+      return res.status(404).json({ error: "Khong tim thay tag ca nhan" });
     }
 
     await prisma.task_Tags.deleteMany({
@@ -71,62 +88,80 @@ export const deleteTag = async (req: any, res: Response) => {
       data: { is_deleted: true },
     });
 
-    return res.status(200).json({ message: "Xóa tag thành công" });
+    return res.status(200).json({ message: "Xoa tag thanh cong" });
   } catch (error) {
-    console.error("Lỗi deleteTag:", error);
-    return res.status(500).json({ error: "Lỗi hệ thống" });
+    console.error("Loi deleteTag:", error);
+    return res.status(500).json({ error: "Loi he thong" });
   }
 };
+
 export const addTagToTask = async (req: any, res: Response) => {
   try {
     const taskId = parseInt(req.params.taskId);
     const tagId = parseInt(req.params.tagId);
 
-    // Kiểm tra task thuộc về user
+    if (isNaN(taskId) || isNaN(tagId)) {
+      return res.status(400).json({ error: "ID task hoac tag khong hop le" });
+    }
+
     const task = await prisma.tasks.findFirst({
       where: { id: taskId, user_id: req.user.id, is_deleted: false },
     });
-    if (!task) return res.status(404).json({ error: "Không tìm thấy task" });
+    if (!task) {
+      return res.status(404).json({ error: "Khong tim thay task" });
+    }
 
-    // Kiểm tra tag thuộc về user
     const tag = await prisma.tags.findFirst({
       where: { id: tagId, user_id: req.user.id, is_deleted: false },
     });
-    if (!tag) return res.status(404).json({ error: "Không tìm thấy tag" });
+    if (!tag) {
+      return res.status(404).json({ error: "Khong tim thay tag" });
+    }
 
-    // Upsert để tránh duplicate
     await prisma.task_Tags.upsert({
       where: { task_id_tag_id: { task_id: taskId, tag_id: tagId } },
       create: { task_id: taskId, tag_id: tagId },
       update: {},
     });
 
-    return res.status(200).json({ message: "Gán tag thành công" });
+    const updatedTask = await getTaskWithRelations(taskId, req.user.id);
+    return res.status(200).json({
+      message: "Gan tag thanh cong",
+      task: updatedTask,
+    });
   } catch (error) {
-    console.error("Lỗi addTagToTask:", error);
-    return res.status(500).json({ error: "Lỗi hệ thống" });
+    console.error("Loi addTagToTask:", error);
+    return res.status(500).json({ error: "Loi he thong" });
   }
 };
 
-// Gỡ tag khỏi task
 export const removeTagFromTask = async (req: any, res: Response) => {
   try {
     const taskId = parseInt(req.params.taskId);
     const tagId = parseInt(req.params.tagId);
 
-    // Kiểm tra task thuộc về user
+    if (isNaN(taskId) || isNaN(tagId)) {
+      return res.status(400).json({ error: "ID task hoac tag khong hop le" });
+    }
+
     const task = await prisma.tasks.findFirst({
       where: { id: taskId, user_id: req.user.id, is_deleted: false },
     });
-    if (!task) return res.status(404).json({ error: "Không tìm thấy task" });
+    if (!task) {
+      return res.status(404).json({ error: "Khong tim thay task" });
+    }
 
-    await prisma.task_Tags.delete({
-      where: { task_id_tag_id: { task_id: taskId, tag_id: tagId } },
+    await prisma.task_Tags.deleteMany({
+      where: { task_id: taskId, tag_id: tagId },
     });
 
-    return res.status(200).json({ message: "Gỡ tag thành công" });
+    const updatedTask = await getTaskWithRelations(taskId, req.user.id);
+    return res.status(200).json({
+      message: "Go tag thanh cong",
+      task: updatedTask,
+    });
   } catch (error) {
-    console.error("Lỗi removeTagFromTask:", error);
-    return res.status(500).json({ error: "Lỗi hệ thống" });
+    console.error("Loi removeTagFromTask:", error);
+    return res.status(500).json({ error: "Loi he thong" });
   }
 };
