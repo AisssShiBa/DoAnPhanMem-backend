@@ -214,7 +214,7 @@ export const signin = async (req: Request, res: Response) => {
     if (!user)
       return res.status(401).json({ error: "Không tìm thấy tài khoản" });
 
-    if (user.provider === "google")
+    if (user.provider === "google" && !user.password_hash)
       return res.status(400).json({ error: "Hãy đăng nhập bằng Google" });
 
     if (user.status !== "ACTIVE")
