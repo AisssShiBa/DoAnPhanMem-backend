@@ -4,6 +4,7 @@ import {
   getNotifications,
   markAsRead,
   markAllAsRead,
+  clearReadNotifications,
 } from "../controllers/notificationController";
 import { protectedRoute } from "../middlewares/authMiddleware";
 
@@ -11,6 +12,7 @@ const router = Router();
 
 router.get("/", protectedRoute, getNotifications);
 router.patch("/read-all", protectedRoute, markAllAsRead);
+router.delete("/read", protectedRoute, clearReadNotifications);
 router.patch("/:id/read", protectedRoute, markAsRead);
 
 export default router;

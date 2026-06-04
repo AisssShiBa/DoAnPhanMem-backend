@@ -42,26 +42,32 @@ export const createReminder = async (req: any, res: Response) => {
       return res.status(404).json({ error: "Không tìm thấy task" });
     }
 
+    if (task.status === "done") {
+      return res
+        .status(400)
+        .json({ error: "Task đã hoàn thành nên không thể tạo nhắc nhở" });
+    }
+
     const settings = await prisma.user_Settings.findUnique({
       where: { user_id: req.user.id },
       select: { notification_enabled: true },
     });
     if (settings?.notification_enabled === false) {
       return res.status(403).json({
-        error: "Bạn đã tắt thông báo trong cài đặt nên không thể tạo nhắc nhở",
+        error:
+          "Bạn đã tắt thông báo trong cài đặt nên không thể tạo nhắc nhở",
       });
     }
 
     const remindDate = new Date(remind_time);
     if (isNaN(remindDate.getTime())) {
-      return res.status(400).json({ error: "Thời gian nhắc nhở không hợp lệ" });
+      return res
+        .status(400)
+        .json({ error: "Thời gian nhắc nhở không hợp lệ" });
     }
 
-    // ✅ Buffer 60 giây để tránh reject do clock lệch client/server
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - 3);
-
-    if (remindDate < now) {
+    const minTime = new Date(Date.now() - 3 * 60 * 1000);
+    if (remindDate < minTime) {
       return res.status(400).json({ error: "Thời gian nhắc nhở đã qua" });
     }
 

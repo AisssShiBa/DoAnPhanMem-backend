@@ -18,6 +18,7 @@ export async function processDueReminders() {
           title: true,
           due_date: true,
           is_deleted: true,
+          status: true,
         },
       },
       user: {
@@ -57,6 +58,15 @@ export async function processDueReminders() {
       continue;
     }
 
+    if (reminder.task.status === "done") {
+      await prisma.reminders.update({
+        where: { id: reminder.id },
+        data: { status: "skipped" },
+      });
+      console.log(`[ReminderJob] Skipped #${reminder.id}: task done.`);
+      continue;
+    }
+
     if (reminder.user.status !== "ACTIVE") {
       await prisma.reminders.update({
         where: { id: reminder.id },
@@ -73,7 +83,7 @@ export async function processDueReminders() {
         data: { status: "skipped" },
       });
       console.log(
-        `[ReminderJob] Skipped #${reminder.id} (notif off): "${reminder.task.title}" -> ${reminder.user.email}`,
+        `[ReminderJob] Skipped #${reminder.id} (notification off): "${reminder.task.title}" -> ${reminder.user.email}`,
       );
       continue;
     }

@@ -1,19 +1,19 @@
-import type { Request, Response } from "express";
+import type { Response } from "express";
 import prisma from "../config/prisma";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { deleteLocalUploadByUrl } from "../utils/localFileStorage";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 
-// ── Multer storage ────────────────────────────────────────────
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     const dir = "uploads/";
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     cb(null, `${unique}${path.extname(file.originalname)}`);
   },
@@ -21,18 +21,9 @@ const storage = multer.diskStorage({
 
 export const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// ── Helper: lấy đường dẫn vật lý từ file_url ─────────────────
-// file_url = "http://localhost:3000/uploads/abc.png"
-// → "uploads/abc.png"
-const getPhysicalPath = (fileUrl: string): string => {
-  const fileName = fileUrl.split("/uploads/")[1];
-  return fileName ? `uploads/${fileName}` : "";
-};
-
-// ── Upload ────────────────────────────────────────────────────
 export const uploadAttachments = async (req: any, res: Response) => {
   try {
     const taskId = parseInt(req.params.id);
@@ -45,23 +36,25 @@ export const uploadAttachments = async (req: any, res: Response) => {
     const task = await prisma.tasks.findFirst({
       where: { id: taskId, user_id: req.user.id, is_deleted: false },
     });
+
     if (!task) {
-      // ✅ Xóa file đã upload nếu task không tồn tại
-      files.forEach((f) => {
-        if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
+      files.forEach((file) => {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       });
       return res.status(404).json({ error: "Không tìm thấy task" });
     }
 
     const attachments = await Promise.all(
-      files.map((f) =>
+      files.map((file) =>
         prisma.task_Attachments.create({
           data: {
             task_id: taskId,
-            file_name: Buffer.from(f.originalname, "latin1").toString("utf8"),
-            file_url: `${BASE_URL}/uploads/${f.filename}`,
-            file_size: f.size,
-            mime_type: f.mimetype,
+            file_name: Buffer.from(file.originalname, "latin1").toString(
+              "utf8",
+            ),
+            file_url: `${BASE_URL}/uploads/${file.filename}`,
+            file_size: file.size,
+            mime_type: file.mimetype,
           },
         }),
       ),
@@ -74,12 +67,10 @@ export const uploadAttachments = async (req: any, res: Response) => {
   }
 };
 
-// ── Get ───────────────────────────────────────────────────────
 export const getAttachments = async (req: any, res: Response) => {
   try {
     const taskId = parseInt(req.params.id);
 
-    // ✅ Kiểm tra task thuộc user trước khi trả về
     const task = await prisma.tasks.findFirst({
       where: { id: taskId, user_id: req.user.id, is_deleted: false },
     });
@@ -99,30 +90,23 @@ export const getAttachments = async (req: any, res: Response) => {
   }
 };
 
-// ── Delete ────────────────────────────────────────────────────
 export const deleteAttachment = async (req: any, res: Response) => {
   try {
     const attachmentId = parseInt(req.params.attachmentId);
     const taskId = parseInt(req.params.id);
 
-    // ✅ Kiểm tra attachment thuộc task của user — tránh user xóa file của người khác
-    const att = await prisma.task_Attachments.findFirst({
+    const attachment = await prisma.task_Attachments.findFirst({
       where: {
         id: attachmentId,
         task_id: taskId,
         task: { user_id: req.user.id, is_deleted: false },
       },
     });
-    if (!att) {
+    if (!attachment) {
       return res.status(404).json({ error: "Không tìm thấy file" });
     }
 
-    // ✅ FIX: đường dẫn vật lý đúng thay vì `.${att.file_url}`
-    const filePath = getPhysicalPath(att.file_url);
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
+    deleteLocalUploadByUrl(attachment.file_url);
     await prisma.task_Attachments.delete({ where: { id: attachmentId } });
 
     return res.status(200).json({ message: "Xóa file thành công" });

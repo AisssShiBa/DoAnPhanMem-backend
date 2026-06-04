@@ -4,7 +4,7 @@ import { z } from "zod";
 import prisma from "../config/prisma";
 
 const updateProfileSchema = z.object({
-  full_name: z.string().min(2, "Ho ten phai co it nhat 2 ky tu"),
+  full_name: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
   phone: z.string().nullable().optional(),
   school: z.string().nullable().optional(),
   major: z.string().nullable().optional(),
@@ -12,7 +12,7 @@ const updateProfileSchema = z.object({
 
 const changePasswordSchema = z.object({
   current_password: z.string().optional(),
-  new_password: z.string().min(8, "Mat khau moi phai co it nhat 8 ky tu"),
+  new_password: z.string().min(8, "Mật khẩu mới phải có ít nhất 8 ký tự"),
 });
 
 const updateSettingsSchema = z.object({
@@ -51,7 +51,7 @@ export const getFullProfile = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "Khong tim thay user" });
+      return res.status(404).json({ error: "Không tìm thấy người dùng" });
     }
 
     const { password_hash, ...safeUser } = user;
@@ -63,7 +63,7 @@ export const getFullProfile = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ error: "Loi he thong" });
+    return res.status(500).json({ error: "Lỗi hệ thống" });
   }
 };
 
@@ -74,7 +74,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     const parsed = updateProfileSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
-        error: "Du lieu khong hop le",
+        error: "Dữ liệu không hợp lệ",
         details: parsed.error.issues,
       });
     }
@@ -92,10 +92,10 @@ export const updateProfile = async (req: Request, res: Response) => {
       },
     });
 
-    return res.status(200).json({ message: "Cap nhat ho so thanh cong" });
+    return res.status(200).json({ message: "Cập nhật hồ sơ thành công" });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ error: "Loi he thong" });
+    return res.status(500).json({ error: "Lỗi hệ thống" });
   }
 };
 
@@ -106,7 +106,7 @@ export const changePassword = async (req: Request, res: Response) => {
     const parsed = changePasswordSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
-        error: "Du lieu khong hop le",
+        error: "Dữ liệu không hợp lệ",
         details: parsed.error.issues,
       });
     }
@@ -115,13 +115,13 @@ export const changePassword = async (req: Request, res: Response) => {
 
     const user = await prisma.users.findUnique({ where: { id: userId } });
     if (!user) {
-      return res.status(404).json({ error: "Khong tim thay tai khoan" });
+      return res.status(404).json({ error: "Không tìm thấy tài khoản" });
     }
 
     const hasPassword = Boolean(user.password_hash);
     if (hasPassword) {
       if (!current_password) {
-        return res.status(400).json({ error: "Thieu mat khau hien tai" });
+        return res.status(400).json({ error: "Thiếu mật khẩu hiện tại" });
       }
 
       const isValid = await bcrypt.compare(
@@ -129,9 +129,9 @@ export const changePassword = async (req: Request, res: Response) => {
         user.password_hash,
       );
       if (!isValid) {
-        return res
-          .status(401)
-          .json({ error: "Mat khau hien tai khong dung" });
+        return res.status(401).json({
+          error: "Mật khẩu hiện tại không đúng",
+        });
       }
     }
 
@@ -143,12 +143,12 @@ export const changePassword = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       message: hasPassword
-        ? "Doi mat khau thanh cong"
-        : "Tao mat khau thanh cong",
+        ? "Đổi mật khẩu thành công"
+        : "Tạo mật khẩu thành công",
     });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ error: "Loi he thong" });
+    return res.status(500).json({ error: "Lỗi hệ thống" });
   }
 };
 
@@ -159,7 +159,7 @@ export const updateSettings = async (req: Request, res: Response) => {
     const parsed = updateSettingsSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
-        error: "Du lieu khong hop le",
+        error: "Dữ liệu không hợp lệ",
         details: parsed.error.issues,
       });
     }
@@ -191,9 +191,9 @@ export const updateSettings = async (req: Request, res: Response) => {
       });
     }
 
-    return res.status(200).json({ message: "Cap nhat cai dat thanh cong" });
+    return res.status(200).json({ message: "Cập nhật cài đặt thành công" });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({ error: "Loi he thong" });
+    return res.status(500).json({ error: "Lỗi hệ thống" });
   }
 };

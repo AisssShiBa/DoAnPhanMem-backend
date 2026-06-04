@@ -16,10 +16,14 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         where: { user_id: userId, is_deleted: false },
       }),
       prisma.tasks.count({
-        where: { user_id: userId, is_deleted: false, status: "completed" },
+        where: { user_id: userId, is_deleted: false, status: "done" },
       }),
       prisma.tasks.count({
-        where: { user_id: userId, is_deleted: false, status: "in_progress" },
+        where: {
+          user_id: userId,
+          is_deleted: false,
+          status: { not: "done" },
+        },
       }),
     ]);
 
@@ -62,7 +66,7 @@ export const getWeeklyPerformance = async (req: Request, res: Response) => {
             where: {
               user_id: userId,
               is_deleted: false,
-              status: "completed",
+              status: "done",
               completed_at: { gte: day, lt: nextDay },
             },
           }),

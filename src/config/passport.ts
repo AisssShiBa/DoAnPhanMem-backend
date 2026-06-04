@@ -30,10 +30,15 @@ passport.use(
           if (user.status === "PENDING") {
             user = await prisma.users.update({
               where: { email },
-              data: { status: "ACTIVE" },
+              data: {
+                status: "ACTIVE",
+                verify_token: null,
+                verify_expires: null,
+              },
               include: { role: true },
             });
           }
+
           return done(null, user);
         }
 
@@ -55,7 +60,7 @@ passport.use(
 
         return done(null, user);
       } catch (error) {
-        console.error("❌ Lỗi xác thực Google:", error);
+        console.error("Lỗi xác thực Google:", error);
         return done(error, false);
       }
     },

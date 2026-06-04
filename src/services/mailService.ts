@@ -22,7 +22,7 @@ const sendEmail = async (payload: EmailPayload) => {
 
 const formatDueDate = (dueDate: Date | null) =>
   dueDate
-    ? dueDate.toLocaleDateString("vi-VN", {
+    ? dueDate.toLocaleString("vi-VN", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
