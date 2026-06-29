@@ -128,7 +128,11 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     await prisma.users.update({
       where: { id: userId },
-      data: { is_deleted: true, deleted_at: new Date() },
+      data: { 
+        is_deleted: true, 
+        deleted_at: new Date(),
+        email: `${user.email}.deleted.${Date.now()}`
+      },
     });
 
     return res.json({ message: "Xóa người dùng thành công" });
