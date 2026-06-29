@@ -214,6 +214,12 @@ export const signin = async (req: Request, res: Response) => {
     if (!user)
       return res.status(401).json({ error: "Không tìm thấy tài khoản" });
 
+    if (user.is_deleted)
+      return res.status(403).json({ error: "Tài khoản đã bị vô hiệu hóa" });
+
+    if (user.status === "BANNED")
+      return res.status(403).json({ error: "Tài khoản đã bị khoá" });
+
     if (user.provider === "google" && !user.password_hash)
       return res.status(400).json({ error: "Hãy đăng nhập bằng Google" });
 
@@ -444,8 +450,12 @@ export const googleCallback = (req: Request, res: Response) => {
       err: Error,
       user: { id: number; email: string; role?: { name: string } },
     ) => {
-      if (err || !user)
+      if (err) {
+        if (err.message === "account_disabled") return res.redirect(`${FRONTEND_URL}/login?error=account_disabled`);
+        if (err.message === "account_banned") return res.redirect(`${FRONTEND_URL}/login?error=account_banned`);
         return res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
+      }
+      if (!user) return res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
 
       await Promise.all([
         cleanupExpiredRefreshTokens(user.id),
